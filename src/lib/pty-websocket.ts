@@ -13,7 +13,7 @@ import { logger } from './logger'
 
 const log = logger.child({ module: 'pty-websocket' })
 
-const SUPPORTED_KINDS = new Set(['claude-code', 'codex-cli'])
+const SUPPORTED_KINDS = new Set(['claude-code', 'codex-cli', 'shell'])
 const SESSION_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/
 
 let wss: WebSocketServer | null = null

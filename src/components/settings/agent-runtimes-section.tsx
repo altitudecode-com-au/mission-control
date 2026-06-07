@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader } from '@/components/ui/loader'
 import { RuntimeSetupModal } from '@/components/onboarding/runtime-setup-modal'
+import { ContainerShell } from '@/components/settings/container-shell'
 
 interface RuntimeStatus {
   id: string
@@ -157,6 +158,12 @@ export function AgentRuntimesSection({ showFeedback }: Props) {
       {isDocker && (
         <div className="mb-3 p-2 rounded border border-void-cyan/20 bg-void-cyan/5 text-xs text-muted-foreground">
           Running in Docker — install directly or use sidecar services for production.
+        </div>
+      )}
+
+      {isDocker && (
+        <div className="mb-4">
+          <ContainerShell />
         </div>
       )}
 

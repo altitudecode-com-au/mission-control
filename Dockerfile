@@ -39,6 +39,9 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/src/lib/schema.sql ./src/lib/schema.sql
 
+# Copy WebSocket server wrapper for PTY terminal support
+COPY --from=build /app/scripts/ws-server.js ./ws-server.js
+
 # Data directory for SQLite / app state
 RUN mkdir -p .data && chown nextjs:nodejs .data
 VOLUME ["/app/.data"]
@@ -52,4 +55,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/api/status || exit 1
 
-CMD ["node", "server.js"]
+CMD ["node", "ws-server.js"]

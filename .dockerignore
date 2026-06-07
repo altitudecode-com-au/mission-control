@@ -27,6 +27,7 @@ coverage
 .husky
 .eslintcache
 
-# Scripts (except check-node-version used by build)
+# Scripts (except those needed by build/runtime)
 scripts/*
 !scripts/check-node-version.mjs
+!scripts/ws-server.js

@@ -422,6 +422,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // GitHub App auth — if GITHUB_APP_ID is set, treat as connected even without GITHUB_TOKEN
+    if (def.id === 'github' && !anySet) {
+      const appId = process.env.GITHUB_APP_ID
+      if (appId) {
+        const primaryVar = def.envVars[0]
+        vars[primaryVar] = { redacted: `GitHub App (ID: ${appId})`, set: true }
+        allSet = true
+        anySet = true
+      }
+    }
+
     // X integration should default to xint auth when present.
     if (def.id === 'x_twitter' && !anySet) {
       const primaryVar = def.envVars[0]

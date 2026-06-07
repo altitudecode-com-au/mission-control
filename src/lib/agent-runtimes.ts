@@ -733,12 +733,37 @@ async function installCodexLocal(job: InstallJob): Promise<void> {
 
 async function installOpenCodeLocal(job: InstallJob): Promise<void> {
   job.output += '> Installing OpenCode...\n'
-  if (await runInstallCmd('brew', ['install', 'opencode'], job)) {
+
+  // Detect environment: use brew on macOS/desktop Linux, curl binary on Docker/Alpine
+  const isDocker = existsSync('/.dockerenv')
+  const hasBrew = (() => {
+    try {
+      const { spawnSync } = require('node:child_process')
+      return spawnSync('brew', ['--version'], { stdio: 'pipe', timeout: 3000 }).status === 0
+    } catch { return false }
+  })()
+
+  let success = false
+  if (hasBrew && !isDocker) {
+    success = await runInstallCmd('brew', ['install', 'opencode'], job)
+  } else {
+    // Install via the official install script (supports Linux x86_64/arm64)
+    const env = getInstallEnv()
+    const path = require('node:path')
+    const dataDir = path.resolve(config.dataDir || '.data')
+    const binDir = path.join(dataDir, '.local', 'bin')
+    try { require('node:fs').mkdirSync(binDir, { recursive: true }) } catch {}
+
+    job.output += '> Downloading opencode via install script...\n'
+    success = await runInstallCmd('sh', ['-c', `curl -fsSL https://opencode.ai/install | INSTALL_DIR="${binDir}" sh`], job)
+  }
+
+  if (success) {
     job.status = 'success'
     job.output += '\n> OpenCode installed successfully.\n'
   } else {
     job.status = 'failed'
-    job.error = 'brew install failed — see output above'
+    job.error = 'OpenCode install failed — see output above'
   }
   job.finishedAt = Date.now()
 }

@@ -629,6 +629,19 @@ function scanOS(): Category {
   const isDarwin = platform === 'darwin'
   const isWindows = platform === 'win32'
 
+  // Cloud-container mode: suppress host-level checks that don't apply inside
+  // a container on managed infrastructure (AWS ECS/EC2 + Docker).
+  const isCloudContainer = process.env.MC_DEPLOYMENT_MODE === 'cloud-container'
+  const CLOUD_MANAGED_CHECKS = new Set([
+    'ntp_sync',
+    'firewall',
+    'auto_updates',
+    'disk_encryption',
+    'linux_mac_framework',
+    'linux_fail2ban',
+    'linux_tmp_noexec',
+  ])
+
   // -- Cross-platform checks --
 
   const uid = process.getuid?.()
@@ -1115,6 +1128,18 @@ function scanOS(): Category {
       fixSafety: 'manual-only',
       platform: 'win32',
     })
+  }
+
+  // In cloud-container mode, override host-level checks that are managed by
+  // cloud infrastructure (AWS Security Groups, EBS encryption, host NTP, etc.)
+  if (isCloudContainer) {
+    for (const check of checks) {
+      if (CLOUD_MANAGED_CHECKS.has(check.id)) {
+        check.status = 'pass'
+        check.detail = 'N/A — managed by cloud infrastructure'
+        check.fix = ''
+      }
+    }
   }
 
   return scoreCategory(checks)

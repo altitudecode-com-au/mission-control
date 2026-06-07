@@ -8,7 +8,6 @@ node_modules
 .github
 ops
 examples
-messages
 docs
 
 # Test files not needed for build

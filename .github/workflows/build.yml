@@ -53,6 +53,6 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.INFRA_DISPATCH_TOKEN }}
-          repository: altitudecode/mission-control-infra
+          repository: altitudecode-com-au/mission-control-infra
           event-type: image-updated
           client-payload: '{"sha": "${{ github.sha }}"}'

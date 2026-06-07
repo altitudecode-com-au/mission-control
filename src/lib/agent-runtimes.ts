@@ -70,7 +70,7 @@ async function downloadAndReviewScript(
     return null
   }
 
-  const regexReport = scanForInjection(content, { context: 'shell' })
+  const regexReport = scanForInjection(content, { context: 'installer' })
   if (!regexReport.safe) {
     const criticals = regexReport.matches.filter(m => m.severity === 'critical')
     if (criticals.length > 0) {

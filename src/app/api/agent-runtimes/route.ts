@@ -84,25 +84,31 @@ export async function POST(request: NextRequest) {
 
   if (action === 'login') {
     const runtime = body.runtime as RuntimeId
-    if (runtime !== 'claude') {
-      return NextResponse.json({ error: 'Login action only supported for claude' }, { status: 400 })
+    if (runtime !== 'claude' && runtime !== 'codex') {
+      return NextResponse.json({ error: 'Login action only supported for claude and codex' }, { status: 400 })
     }
 
-    const bin = detectBinaryPath('claude')
+    const loginCommands: Record<string, { bin: string; args: string[] }> = {
+      claude: { bin: 'claude', args: ['login', '--no-open'] },
+      codex: { bin: 'codex', args: ['auth'] },
+    }
+
+    const { bin: binName, args } = loginCommands[runtime]
+    const bin = detectBinaryPath(binName)
     if (!bin) {
-      return NextResponse.json({ error: 'Claude Code binary not found' }, { status: 404 })
+      return NextResponse.json({ error: `${binName} binary not found` }, { status: 404 })
     }
 
     try {
       const { spawnSync } = require('node:child_process')
-      const result = spawnSync(bin, ['login', '--no-open'], {
+      const result = spawnSync(bin, args, {
         stdio: 'pipe',
         timeout: 30_000,
         env: { ...process.env, NO_COLOR: '1' },
       })
       const output = (result.stdout?.toString() || '') + (result.stderr?.toString() || '')
 
-      // Extract the device code URL from output
+      // Extract any device code URL from output
       const urlMatch = output.match(/https:\/\/[^\s]+/)
       const url = urlMatch ? urlMatch[0] : null
 
@@ -112,7 +118,7 @@ export async function POST(request: NextRequest) {
         deviceUrl: url,
       })
     } catch (err: any) {
-      logger.error({ err }, 'Claude login command failed')
+      logger.error({ err, runtime }, 'Runtime login command failed')
       return NextResponse.json({ error: err?.message || 'Login command failed' }, { status: 500 })
     }
   }

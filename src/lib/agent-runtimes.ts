@@ -696,12 +696,12 @@ async function installOpenClawLocal(job: InstallJob): Promise<void> {
     rmSync(reviewed.tempDir, { recursive: true, force: true })
 
     // Verify the binary actually exists after install
-    const { installed: verified } = detectBinary([config.openclawBin || 'openclaw'])
+    const { installed: verified, resolvedBin: openclawBin } = detectBinary([config.openclawBin || 'openclaw'])
 
     if (result.code === 0 && verified) {
       job.output += '\n> OpenClaw installed. Running initial setup...\n'
       try {
-        const onboard = await runCommand('openclaw', ['onboard', '--non-interactive'], { timeoutMs: 60_000, env })
+        const onboard = await runCommand(openclawBin || 'openclaw', ['onboard'], { timeoutMs: 60_000, env })
         if (onboard.stdout) job.output += onboard.stdout + '\n'
         if (onboard.stderr) job.output += onboard.stderr + '\n'
       } catch {

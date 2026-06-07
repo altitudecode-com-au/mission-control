@@ -354,12 +354,15 @@ function detectBinary(bins: string[], versionFlag = '--version'): { installed: b
   const { spawnSync } = require('node:child_process')
   const homedir = require('node:os').homedir()
   const path = require('node:path')
+  const dataDir = path.resolve(config.dataDir || '.data')
 
   // Expand bare binary names with common install locations that may not be on PATH
   const candidates: string[] = []
   for (const bin of bins) {
     if (!bin.includes('/')) {
       candidates.push(
+        path.join(dataDir, '.npm-global', 'bin', bin),
+        path.join(dataDir, '.local', 'bin', bin),
         path.join(homedir, '.local', 'bin', bin),
         path.join('/usr', 'local', 'bin', bin),
         path.join(homedir, 'Library', 'pnpm', bin),  // macOS pnpm global

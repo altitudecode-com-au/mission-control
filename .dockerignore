@@ -3,8 +3,31 @@ node_modules
 .data
 .next
 .env
+.env.*
 *.md
 .github
 ops
+examples
+messages
+docs
+
+# Test files not needed for build
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+playwright.config.ts
+playwright.*.config.ts
+vitest.config.*
+coverage
+
+# Config/tooling not needed in build
+.vscode
+.idea
+.husky
+.eslintcache
+
+# Scripts (except check-node-version used by build)
 scripts/*
 !scripts/check-node-version.mjs

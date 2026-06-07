@@ -1,14 +1,15 @@
+# Pin digest for cache stability — update periodically via dependabot or manually.
+# Current: node 22.22.x on alpine 3.x (last pushed 2026-05-14)
 # ── Stage 1: Install dependencies ────────────────────────────────────────────
-FROM node:22-alpine AS deps
-RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS deps
+RUN apk add --no-cache python3 make g++ \
+    && corepack enable && corepack prepare pnpm@10.29.3 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-# python3, make, g++ needed for native addons (node-pty, better-sqlite3)
-RUN apk add --no-cache python3 make g++
 RUN pnpm install --frozen-lockfile
 
 # ── Stage 2: Build the Next.js app ──────────────────────────────────────────
-FROM node:22-alpine AS build
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS build
 RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -16,7 +17,7 @@ COPY . .
 RUN pnpm build
 
 # ── Stage 3: Production runtime ─────────────────────────────────────────────
-FROM node:22-alpine AS runtime
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/altitudecode/mission-control"
 LABEL org.opencontainers.image.description="Mission Control — agent orchestration dashboard"

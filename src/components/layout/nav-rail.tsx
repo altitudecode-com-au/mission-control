@@ -102,7 +102,7 @@ const navItemTranslationKeys: Record<string, string> = {
   webhooks: 'webhooks',
   alerts: 'alerts',
   github: 'github',
-  githuborg: 'github',
+  githuborg: 'githuborg',
   security: 'security',
   users: 'users',
   audit: 'audit',

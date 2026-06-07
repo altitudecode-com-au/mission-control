@@ -44,7 +44,7 @@ export function GitHubOrgPanel() {
   useEffect(() => {
     fetch("/api/github/repos")
       .then((r) => r.json())
-      .then(setRepos)
+      .then((data) => setRepos(Array.isArray(data) ? data : []))
       .catch(() => setError("Failed to load repos"))
       .finally(() => setLoading(false));
   }, []);
@@ -59,7 +59,7 @@ export function GitHubOrgPanel() {
       const [actionsRes] = await Promise.all([
         fetch(`/api/github/actions?repo=${repoName}`).then((r) => r.json()),
       ]);
-      setRuns((prev) => ({ ...prev, [repoName]: actionsRes }));
+      setRuns((prev) => ({ ...prev, [repoName]: Array.isArray(actionsRes) ? actionsRes : [] }));
     }
   }
 

@@ -517,39 +517,41 @@ function detectKiro(): RuntimeStatus {
 
   let authenticated = false
   if (installed) {
-    // Kiro CLI stores auth config in ~/.kiro/ — check if credentials exist
+    // Try running a quick command that would fail if not authenticated
     try {
-      const homedir = require('node:os').homedir()
-      const path = require('node:path')
-
-      const configPath = path.join(homedir, '.kiro', 'credentials.json')
-      if (existsSync(configPath)) {
+      const { spawnSync } = require('node:child_process')
+      // If `kiro-cli login` says "Already logged in", we're authenticated
+      const result = spawnSync(resolvedBin || 'kiro-cli', ['login'], {
+        stdio: 'pipe',
+        timeout: 10_000,
+        env: { ...process.env, NO_COLOR: '1' },
+      })
+      const output = (result.stdout?.toString() || '') + (result.stderr?.toString() || '')
+      if (output.includes('Already logged in') || output.includes('already logged in')) {
         authenticated = true
-      }
-
-      // Fallback: check if AWS credentials or Kiro session exists
-      if (!authenticated) {
-        const sessionPath = path.join(homedir, '.kiro', 'session.json')
-        if (existsSync(sessionPath)) {
-          authenticated = true
-        }
       }
     } catch {
       // ignore
     }
 
-    // Fallback: try `kiro-cli auth status`
+    // Fallback: check for config files
     if (!authenticated) {
       try {
-        const { spawnSync } = require('node:child_process')
-        const result = spawnSync(resolvedBin || 'kiro-cli', ['auth', 'status'], {
-          stdio: 'pipe',
-          timeout: 5000,
-        })
-        if (result.status === 0) {
-          const output = result.stdout?.toString() || ''
-          authenticated = output.includes('authenticated') || output.includes('logged in')
-        }
+        const homedir = require('node:os').homedir()
+        const path = require('node:path')
+        const kiroDir = path.join(homedir, '.kiro')
+        const dataDir = path.resolve(config.dataDir || '.data')
+
+        // Check common credential file locations
+        const candidates = [
+          path.join(kiroDir, 'credentials.json'),
+          path.join(kiroDir, 'session.json'),
+          path.join(kiroDir, 'config.json'),
+          path.join(kiroDir, 'auth.json'),
+          path.join(dataDir, '.kiro', 'credentials.json'),
+          path.join(dataDir, '.kiro', 'config.json'),
+        ]
+        authenticated = candidates.some(p => existsSync(p))
       } catch {
         // ignore
       }

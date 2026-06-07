@@ -600,7 +600,7 @@ async function installOpenClawLocal(job: InstallJob): Promise<void> {
   }
   try {
     // Download, review, then execute from secure temp dir
-    const reviewed = await downloadAndReviewScript('https://get.openclaw.dev', job, env)
+    const reviewed = await downloadAndReviewScript('https://openclaw.ai/install.sh', job, env)
     if (!reviewed) {
       job.status = 'failed'
       job.error = 'Installer download or security review failed'

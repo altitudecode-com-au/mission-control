@@ -82,5 +82,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status })
   }
 
+  if (action === 'login') {
+    const runtime = body.runtime as RuntimeId
+    if (runtime !== 'claude') {
+      return NextResponse.json({ error: 'Login action only supported for claude' }, { status: 400 })
+    }
+
+    // Run `claude login` in headless mode — outputs a device code URL
+    const { detectBinaryPath } = await import('@/lib/agent-runtimes')
+    const bin = detectBinaryPath('claude')
+    if (!bin) {
+      return NextResponse.json({ error: 'Claude Code binary not found' }, { status: 404 })
+    }
+
+    try {
+      const { runCommand } = await import('@/lib/command')
+      const result = await runCommand(bin, ['login', '--no-open'], { timeoutMs: 30_000 })
+      const output = (result.stdout || '') + (result.stderr || '')
+
+      // Extract the device code URL from output
+      const urlMatch = output.match(/https:\/\/[^\s]+/)
+      const url = urlMatch ? urlMatch[0] : null
+
+      return NextResponse.json({
+        success: result.code === 0,
+        output,
+        deviceUrl: url,
+      })
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message || 'Login command failed' }, { status: 500 })
+    }
+  }
+
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }

@@ -1017,6 +1017,9 @@ function ClaudeSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
   const [checking, setChecking] = useState(false)
   const [version, setVersion] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loginBusy, setLoginBusy] = useState(false)
+  const [loginOutput, setLoginOutput] = useState('')
+  const [deviceUrl, setDeviceUrl] = useState<string | null>(null)
 
   const checkAuth = useCallback(async () => {
     setChecking(true)
@@ -1099,12 +1102,62 @@ function ClaudeSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
             <p className="text-xs text-muted-foreground">
               Claude Code {version ? `(v${version})` : ''} is installed but not authenticated.
             </p>
+            <div className="p-3 rounded bg-black/20 border border-border/20 space-y-2">
+              <p className="text-xs text-muted-foreground mb-1.5">Option 1: Run login from this dashboard</p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={loginBusy}
+                onClick={async () => {
+                  setLoginBusy(true)
+                  setLoginOutput('')
+                  setDeviceUrl(null)
+                  try {
+                    const res = await fetch('/api/agent-runtimes', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'login', runtime: 'claude' }),
+                    })
+                    const data = await res.json()
+                    if (data.output) setLoginOutput(data.output)
+                    if (data.deviceUrl) setDeviceUrl(data.deviceUrl)
+                    if (data.success) {
+                      checkAuth()
+                    }
+                  } catch (err: any) {
+                    setLoginOutput(`Error: ${err?.message || 'Login failed'}`)
+                  } finally {
+                    setLoginBusy(false)
+                  }
+                }}
+              >
+                {loginBusy ? 'Running login...' : 'Start Login (Device Code)'}
+              </Button>
+              {deviceUrl && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-muted-foreground">Open this link to authenticate:</p>
+                  <a
+                    href={deviceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex text-xs text-primary underline underline-offset-2 hover:text-primary/80 break-all"
+                  >
+                    {deviceUrl}
+                  </a>
+                </div>
+              )}
+              {loginOutput && (
+                <pre className="mt-2 max-h-24 overflow-y-auto rounded border border-border/20 bg-black/25 px-2.5 py-1.5 text-[10px] text-muted-foreground/80 whitespace-pre-wrap break-all">
+                  {loginOutput}
+                </pre>
+              )}
+            </div>
             <div className="p-3 rounded bg-black/20 border border-border/20">
-              <p className="text-xs text-muted-foreground mb-1.5">Run this command in your terminal:</p>
+              <p className="text-xs text-muted-foreground mb-1.5">Option 2: Run manually via SSH/SSM</p>
               <code className="block font-mono text-sm text-foreground select-all">claude login</code>
             </div>
             <p className="text-xs text-muted-foreground">
-              This opens a browser for OAuth login with your Anthropic account, or you can set <code className="text-[11px] bg-black/20 px-1 rounded">ANTHROPIC_API_KEY</code> in your environment.
+              Or set <code className="text-[11px] bg-black/20 px-1 rounded">ANTHROPIC_API_KEY</code> as an environment variable to skip login entirely.
             </p>
           </div>
 

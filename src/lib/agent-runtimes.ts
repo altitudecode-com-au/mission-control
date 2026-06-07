@@ -386,6 +386,12 @@ function detectBinary(bins: string[], versionFlag = '--version'): { installed: b
   return { installed: false, version: null, resolvedBin: null }
 }
 
+/** Resolve the absolute path to a runtime binary (used by login action) */
+export function detectBinaryPath(name: string): string | null {
+  const { resolvedBin } = detectBinary([name])
+  return resolvedBin
+}
+
 function detectClaude(): RuntimeStatus {
   const meta = RUNTIME_META.claude
   const { installed, version, resolvedBin } = detectBinary(['claude'])

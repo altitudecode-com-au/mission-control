@@ -88,13 +88,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Login action only supported for claude, codex, and kiro' }, { status: 400 })
     }
 
-    const loginCommands: Record<string, { bin: string; args: string[] }> = {
-      claude: { bin: 'claude', args: ['login'] },
+    const loginCommands: Record<string, { bin: string; args: string[]; stdin?: string }> = {
+      claude: { bin: 'claude', args: [], stdin: '/login\n' },
       codex: { bin: 'codex', args: ['auth'] },
       kiro: { bin: 'kiro-cli', args: ['login'] },
     }
 
-    const { bin: binName, args } = loginCommands[runtime]
+    const { bin: binName, args, stdin: stdinData } = loginCommands[runtime]
     const bin = detectBinaryPath(binName)
     if (!bin) {
       return NextResponse.json({ error: `${binName} binary not found` }, { status: 404 })
@@ -105,10 +105,15 @@ export async function POST(request: NextRequest) {
 
       // Spawn the login process asynchronously — it will stay alive waiting for OAuth
       const child = spawn(bin, args, {
-        stdio: 'pipe',
-        env: { ...process.env, NO_COLOR: '1', DISPLAY: '', BROWSER: 'echo' },
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, NO_COLOR: '1', DISPLAY: '', BROWSER: 'echo', TERM: 'dumb' },
         detached: true,
       })
+
+      // Send stdin command if needed (e.g. /login for claude REPL)
+      if (stdinData) {
+        child.stdin?.write(stdinData)
+      }
 
       // Collect output for up to 10s to capture the device URL
       let output = ''

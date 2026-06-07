@@ -755,7 +755,7 @@ async function installOpenCodeLocal(job: InstallJob): Promise<void> {
     try { require('node:fs').mkdirSync(binDir, { recursive: true }) } catch {}
 
     job.output += '> Downloading opencode via install script...\n'
-    success = await runInstallCmd('sh', ['-c', `curl -fsSL https://opencode.ai/install | INSTALL_DIR="${binDir}" sh`], job)
+    success = await runInstallCmd('sh', ['-c', `curl -fsSL https://opencode.ai/install | SHELL=/bin/sh INSTALL_DIR="${binDir}" sh`], job)
   }
 
   if (success) {

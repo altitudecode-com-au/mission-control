@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { existsSync, readFileSync, writeFileSync, chmodSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, chmodSync, statSync, mkdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -71,7 +71,10 @@ export async function POST(request: NextRequest) {
   const shouldFix = (id: string) => !targetIds || targetIds.has(id)
 
   const results: FixResult[] = []
+  const dataDir = path.resolve(config?.dataDir || process.env.MC_DATA_DIR || '.data')
+  try { mkdirSync(dataDir, { recursive: true }) } catch {}
   const envPaths = [
+    path.join(dataDir, '.env'),
     path.join(process.cwd(), '.env'),
     path.join(process.cwd(), '.env.local'),
   ]

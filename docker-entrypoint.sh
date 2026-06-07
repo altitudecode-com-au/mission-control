@@ -9,6 +9,14 @@ if [ -f /app/.env ]; then
   set +a
 fi
 
+# --- Source persisted .data/.env (settings written by the UI) ---
+if [ -f /app/.data/.env ]; then
+  printf '[entrypoint] Loading .data/.env (persisted settings)\n'
+  set -a
+  . /app/.data/.env
+  set +a
+fi
+
 # --- Helper: generate a random hex secret ---
 generate_secret() {
   if command -v openssl >/dev/null 2>&1; then

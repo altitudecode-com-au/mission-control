@@ -52,7 +52,7 @@ jobs:
       - name: Trigger infra deploy
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          token: ${{ secrets.INFRA_DISPATCH_TOKEN }}
           repository: altitudecode/mission-control-infra
           event-type: image-updated
           client-payload: '{"sha": "${{ github.sha }}"}'

@@ -1,12 +1,14 @@
 # ── Stage 1: Install dependencies ────────────────────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
+# python3, make, g++ needed for native addons (node-pty, better-sqlite3)
+RUN apk add --no-cache python3 make g++
 RUN pnpm install --frozen-lockfile
 
 # ── Stage 2: Build the Next.js app ──────────────────────────────────────────
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -14,7 +16,7 @@ COPY . .
 RUN pnpm build
 
 # ── Stage 3: Production runtime ─────────────────────────────────────────────
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/altitudecode/mission-control"
 LABEL org.opencontainers.image.description="Mission Control — agent orchestration dashboard"

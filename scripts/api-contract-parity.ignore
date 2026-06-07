@@ -15,3 +15,8 @@ GET /api/gateways/control
 POST /api/gateways/control
 GET /api/mcp-audit/verify
 POST /api/hermes/events
+# GitHub integration routes — TODO: add OpenAPI specs
+GET /api/github/actions
+GET /api/github/issues
+GET /api/github/repos
+POST /api/webhooks/github

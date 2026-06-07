@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     const loginCommands: Record<string, { bin: string; args: string[] }> = {
-      claude: { bin: 'claude', args: ['login', '--no-open'] },
+      claude: { bin: 'claude', args: ['login'] },
       codex: { bin: 'codex', args: ['auth'] },
       kiro: { bin: 'kiro-cli', args: ['login'] },
     }
@@ -101,22 +101,50 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const { spawnSync } = require('node:child_process')
-      const result = spawnSync(bin, args, {
-        stdio: 'pipe',
-        timeout: 30_000,
-        env: { ...process.env, NO_COLOR: '1' },
-      })
-      const output = (result.stdout?.toString() || '') + (result.stderr?.toString() || '')
+      const { spawn } = require('node:child_process')
 
-      // Extract any device code URL from output
-      const urlMatch = output.match(/https:\/\/[^\s]+/)
+      // Spawn the login process asynchronously — it will stay alive waiting for OAuth
+      const child = spawn(bin, args, {
+        stdio: 'pipe',
+        env: { ...process.env, NO_COLOR: '1', DISPLAY: '', BROWSER: 'echo' },
+        detached: true,
+      })
+
+      // Collect output for up to 10s to capture the device URL
+      let output = ''
+      const outputPromise = new Promise<string>((resolve) => {
+        const timeout = setTimeout(() => resolve(output), 10_000)
+
+        const onData = (chunk: Buffer) => {
+          output += chunk.toString()
+          // If we see a URL, resolve early — no need to wait full 10s
+          if (output.match(/https:\/\/[^\s]+/)) {
+            clearTimeout(timeout)
+            resolve(output)
+          }
+        }
+
+        child.stdout?.on('data', onData)
+        child.stderr?.on('data', onData)
+        child.on('close', () => { clearTimeout(timeout); resolve(output) })
+      })
+
+      // Don't hold up the parent process
+      child.unref()
+
+      const collectedOutput = await outputPromise
+
+      // Extract the device code URL from output
+      const urlMatch = collectedOutput.match(/https:\/\/[^\s]+/)
       const url = urlMatch ? urlMatch[0] : null
 
       return NextResponse.json({
-        success: result.status === 0,
-        output,
+        success: !!url,
+        output: collectedOutput,
         deviceUrl: url,
+        message: url
+          ? 'Open the link to authenticate. The login process is running in the background and will complete once you authorize.'
+          : 'Login process started but no device URL was found. Try running the command manually via SSH/SSM.',
       })
     } catch (err: any) {
       logger.error({ err, runtime }, 'Runtime login command failed')

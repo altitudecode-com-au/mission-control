@@ -264,19 +264,35 @@ function detectOpenClaw(): RuntimeStatus {
     installed = true
   }
 
-  // Try to get version
-  try {
-    const result = require('node:child_process').spawnSync(
-      config.openclawBin || 'openclaw',
-      ['--version'],
-      { stdio: 'pipe', timeout: 3000 }
-    )
-    if (result.status === 0) {
-      installed = true
-      version = (result.stdout?.toString() || '').trim() || null
+  // Try to find and get version — check data dir, homedir, and PATH
+  const path = require('node:path')
+  const dataDir = path.resolve(config.dataDir || '.data')
+  const homedir = require('node:os').homedir()
+  const candidates = [
+    config.openclawBin,
+    path.join(dataDir, '.npm-global', 'bin', 'openclaw'),
+    path.join(dataDir, '.local', 'bin', 'openclaw'),
+    path.join(homedir, '.local', 'bin', 'openclaw'),
+    path.join(homedir, '.npm-global', 'bin', 'openclaw'),
+    '/usr/local/bin/openclaw',
+    'openclaw',
+  ].filter(Boolean)
+
+  for (const bin of candidates) {
+    try {
+      const result = require('node:child_process').spawnSync(
+        bin!,
+        ['--version'],
+        { stdio: 'pipe', timeout: 3000 }
+      )
+      if (result.status === 0) {
+        installed = true
+        version = (result.stdout?.toString() || '').trim() || null
+        break
+      }
+    } catch {
+      continue
     }
-  } catch {
-    // binary not found
   }
 
   // Check if gateway port is listening (simple sync check)

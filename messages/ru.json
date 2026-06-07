@@ -95,6 +95,7 @@
     "webhooks": "Webhooks",
     "alerts": "Оповещения",
     "github": "GitHub",
+    "githuborg": "GitHub Org",
     "security": "Безопасность",
     "users": "Пользователи",
     "audit": "Аудит",

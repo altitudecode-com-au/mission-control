@@ -126,7 +126,21 @@ function getHermesGatewayStatus(): GatewayStatus {
 }
 
 function getOpenClawGatewayStatus(): GatewayStatus {
-  const installed = !!(config.openclawConfigPath && existsSync(config.openclawConfigPath))
+  // Check config file OR binary existence
+  const path = require('node:path')
+  const dataDir = path.resolve(config.dataDir || '.data')
+  const homedir = require('node:os').homedir()
+
+  const hasConfig = !!(config.openclawConfigPath && existsSync(config.openclawConfigPath))
+  const hasBinary = [
+    path.join(dataDir, '.npm-global', 'bin', 'openclaw'),
+    path.join(dataDir, '.local', 'bin', 'openclaw'),
+    path.join(homedir, '.local', 'bin', 'openclaw'),
+    path.join(homedir, '.npm-global', 'bin', 'openclaw'),
+    '/usr/local/bin/openclaw',
+  ].some(p => existsSync(p))
+
+  const installed = hasConfig || hasBinary
   let running = false
   let port: number | undefined
 
@@ -265,7 +279,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (gateway === 'openclaw') {
-      const openclawBin = config.openclawBin || 'openclaw'
+      // Find the openclaw binary in common install locations
+      const path = require('node:path')
+      const dataDir = path.resolve(config.dataDir || '.data')
+      const homedir = require('node:os').homedir()
+      const openclawCandidates = [
+        config.openclawBin,
+        path.join(dataDir, '.npm-global', 'bin', 'openclaw'),
+        path.join(dataDir, '.local', 'bin', 'openclaw'),
+        path.join(homedir, '.local', 'bin', 'openclaw'),
+        '/usr/local/bin/openclaw',
+        'openclaw',
+      ].filter(Boolean) as string[]
+      const openclawBin = openclawCandidates.find(p => p === 'openclaw' || existsSync(p)) || 'openclaw'
 
       if (action === 'diagnose') {
         const result = await runCommand(openclawBin, ['doctor'], { timeoutMs: 30_000 })

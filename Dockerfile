@@ -26,8 +26,8 @@ LABEL org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 ENV NODE_ENV=production
 
-# curl for health checks
-RUN apk add --no-cache curl
+# curl for health checks, bash + git for agent runtime installers (OpenClaw, Hermes)
+RUN apk add --no-cache curl bash git
 
 # Non-root user
 RUN addgroup --system --gid 1001 nodejs && \

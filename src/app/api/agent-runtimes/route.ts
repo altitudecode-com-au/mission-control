@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
-import { detectAllRuntimes, detectRuntime, startInstall, getInstallJob, getActiveJobs, generateDockerSidecar } from '@/lib/agent-runtimes'
+import { detectAllRuntimes, detectRuntime, startInstall, getInstallJob, getActiveJobs, generateDockerSidecar, detectBinaryPath } from '@/lib/agent-runtimes'
 import type { RuntimeId, DeploymentMode } from '@/lib/agent-runtimes'
 import { clearHermesDetectionCache } from '@/lib/hermes-sessions'
 import { logAuditEvent } from '@/lib/db'
@@ -88,28 +88,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Login action only supported for claude' }, { status: 400 })
     }
 
-    // Run `claude login` in headless mode — outputs a device code URL
-    const { detectBinaryPath } = await import('@/lib/agent-runtimes')
     const bin = detectBinaryPath('claude')
     if (!bin) {
       return NextResponse.json({ error: 'Claude Code binary not found' }, { status: 404 })
     }
 
     try {
-      const { runCommand } = await import('@/lib/command')
-      const result = await runCommand(bin, ['login', '--no-open'], { timeoutMs: 30_000 })
-      const output = (result.stdout || '') + (result.stderr || '')
+      const { spawnSync } = require('node:child_process')
+      const result = spawnSync(bin, ['login', '--no-open'], {
+        stdio: 'pipe',
+        timeout: 30_000,
+        env: { ...process.env, NO_COLOR: '1' },
+      })
+      const output = (result.stdout?.toString() || '') + (result.stderr?.toString() || '')
 
       // Extract the device code URL from output
       const urlMatch = output.match(/https:\/\/[^\s]+/)
       const url = urlMatch ? urlMatch[0] : null
 
       return NextResponse.json({
-        success: result.code === 0,
+        success: result.status === 0,
         output,
         deviceUrl: url,
       })
     } catch (err: any) {
+      logger.error({ err }, 'Claude login command failed')
       return NextResponse.json({ error: err?.message || 'Login command failed' }, { status: 500 })
     }
   }

@@ -1,58 +1,37 @@
-name: Build and push image
+name: Docker Build Validation
+
+# Validate the Docker image builds successfully on PRs (no push).
+# The actual push happens in docker-publish.yml after quality-gate passes on main.
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/mission-control
-          tags: |
-            type=raw,value=latest
-            type=sha,format=long
-
-      - name: Build and push
+      - name: Build (no push)
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # NOTE: GHCR packages default to private. After the first push you must
-      # manually set visibility to "Public" in GitHub → Package Settings, since
-      # the GITHUB_TOKEN cannot change package visibility. This is required for
-      # unauthenticated pulls (e.g. from an EC2 instance without docker login).
-
-      - name: Trigger infra deploy
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.INFRA_DISPATCH_TOKEN }}
-          repository: altitudecode-com-au/mission-control-infra
-          event-type: image-updated
-          client-payload: '{"sha": "${{ github.sha }}"}'
+          push: false
+          load: true
+          tags: mission-control:pr-${{ github.event.number }}
+          cache-from: type=gha,scope=docker-main
+          cache-to: type=gha,mode=max,scope=docker-pr

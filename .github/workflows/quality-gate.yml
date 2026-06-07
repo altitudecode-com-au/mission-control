@@ -2,57 +2,88 @@ name: Quality Gate
 
 on:
   pull_request:
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'LICENSE'
   push:
     branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'LICENSE'
 
 concurrency:
   group: quality-gate-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  quality-gate:
+  # ─── Shared setup: install deps and cache for downstream jobs ───────────────
+  install:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
 
-      - name: Setup pnpm
-        # Version comes from package.json#packageManager (pnpm@10.29.3) — the
-        # single source of truth. action-setup@v4 errors if a `version:` is also
-        # set here (ERR_PNPM_BAD_PM_VERSION), so do not re-specify it.
-        uses: pnpm/action-setup@v4
+  # ─── Lint + Typecheck (fast, no build needed) ──────────────────────────────
+  lint-typecheck:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+  # ─── API contract parity ───────────────────────────────────────────────────
+  api-parity:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
+      - name: API contract parity
+        run: pnpm api:parity
 
+  # ─── Unit tests ────────────────────────────────────────────────────────────
+  unit-tests:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
       - name: Configure git identity
         run: |
           git config --global user.email "ci@mission-control.dev"
           git config --global user.name "CI"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: API contract parity
-        run: pnpm api:parity
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
       - name: Unit tests
         run: pnpm test
+
+  # ─── E2E tests (requires build + Playwright) ──────────────────────────────
+  e2e-tests:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm
 
       - name: Prepare E2E environment
         run: cp .env.test .env
 
       - name: Build
         run: pnpm build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps

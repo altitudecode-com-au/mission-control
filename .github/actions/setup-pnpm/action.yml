@@ -1,0 +1,23 @@
+name: Setup pnpm environment
+description: Checkout, install pnpm, setup Node, and install dependencies with cache
+
+inputs:
+  node-version-file:
+    description: Path to the node version file
+    default: '.nvmrc'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: ${{ inputs.node-version-file }}
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

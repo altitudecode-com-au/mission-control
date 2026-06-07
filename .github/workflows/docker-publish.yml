@@ -84,7 +84,21 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=docker-main
+          cache-to: type=gha,mode=max,scope=docker-main
           provenance: true
           sbom: true
+
+      # NOTE: GHCR packages default to private. After the first push you must
+      # manually set visibility to "Public" in GitHub → Package Settings, since
+      # the GITHUB_TOKEN cannot change package visibility. This is required for
+      # unauthenticated pulls (e.g. from an EC2 instance without docker login).
+
+      - name: Trigger infra deploy
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_run'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.INFRA_DISPATCH_TOKEN }}
+          repository: altitudecode-com-au/mission-control-infra
+          event-type: image-updated
+          client-payload: '{"sha": "${{ github.event_name == ''workflow_run'' && github.event.workflow_run.head_sha || github.sha }}"}'

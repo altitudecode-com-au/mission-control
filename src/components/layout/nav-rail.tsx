@@ -59,6 +59,7 @@ const navGroups: NavGroup[] = [
       { id: 'webhooks', label: 'Webhooks', icon: <WebhookIcon />, priority: false },
       { id: 'alerts', label: 'Alerts', icon: <AlertIcon />, priority: false },
       { id: 'github', label: 'GitHub', icon: <GitHubIcon />, priority: false },
+      { id: 'githuborg', label: 'GitHub Org',icon: <GitHubIcon />,  priority: false },
     ],
   },
   {
@@ -101,6 +102,7 @@ const navItemTranslationKeys: Record<string, string> = {
   webhooks: 'webhooks',
   alerts: 'alerts',
   github: 'github',
+  githuborg: 'github',
   security: 'security',
   users: 'users',
   audit: 'audit',

@@ -159,7 +159,7 @@ ${truncated}
   }
 }
 
-export type RuntimeId = 'openclaw' | 'hermes' | 'claude' | 'codex' | 'opencode'
+export type RuntimeId = 'openclaw' | 'hermes' | 'claude' | 'codex' | 'opencode' | 'kiro'
 export type DeploymentMode = 'local' | 'docker'
 
 export interface RuntimeStatus {
@@ -222,6 +222,12 @@ const RUNTIME_META: Record<RuntimeId, RuntimeMeta> = {
     description: 'AI coding agent for the terminal with local SQLite-backed session storage.',
     authRequired: false,
     authHint: '',
+  },
+  kiro: {
+    name: 'Kiro CLI',
+    description: 'AI-powered CLI agent for software engineering with custom agents, planning, and MCP support.',
+    authRequired: true,
+    authHint: 'Run "kiro-cli login" after install to authenticate.',
   },
 }
 
@@ -489,12 +495,61 @@ function detectOpenCode(): RuntimeStatus {
   return { id: 'opencode', ...meta, installed, version, running, authenticated: installed }
 }
 
+function detectKiro(): RuntimeStatus {
+  const meta = RUNTIME_META.kiro
+  const { installed, version, resolvedBin } = detectBinary(['kiro-cli'])
+
+  let authenticated = false
+  if (installed) {
+    // Kiro CLI stores auth config in ~/.kiro/ — check if credentials exist
+    try {
+      const homedir = require('node:os').homedir()
+      const path = require('node:path')
+
+      const configPath = path.join(homedir, '.kiro', 'credentials.json')
+      if (existsSync(configPath)) {
+        authenticated = true
+      }
+
+      // Fallback: check if AWS credentials or Kiro session exists
+      if (!authenticated) {
+        const sessionPath = path.join(homedir, '.kiro', 'session.json')
+        if (existsSync(sessionPath)) {
+          authenticated = true
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Fallback: try `kiro-cli auth status`
+    if (!authenticated) {
+      try {
+        const { spawnSync } = require('node:child_process')
+        const result = spawnSync(resolvedBin || 'kiro-cli', ['auth', 'status'], {
+          stdio: 'pipe',
+          timeout: 5000,
+        })
+        if (result.status === 0) {
+          const output = result.stdout?.toString() || ''
+          authenticated = output.includes('authenticated') || output.includes('logged in')
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  return { id: 'kiro', ...meta, installed, version, running: false, authenticated }
+}
+
 const DETECTORS: Record<RuntimeId, () => RuntimeStatus> = {
   openclaw: detectOpenClaw,
   hermes: detectHermes,
   claude: detectClaude,
   codex: detectCodex,
   opencode: detectOpenCode,
+  kiro: detectKiro,
 }
 
 export function detectRuntime(id: RuntimeId): RuntimeStatus {
@@ -541,6 +596,7 @@ export function startInstall(runtime: RuntimeId, mode: DeploymentMode): InstallJ
     claude: installClaudeLocal,
     codex: installCodexLocal,
     opencode: installOpenCodeLocal,
+    kiro: installKiroLocal,
   }
   const installFn = INSTALL_FNS[runtime] || installOpenClawLocal
   installFn(job).catch((err) => {
@@ -770,6 +826,30 @@ async function installOpenCodeLocal(job: InstallJob): Promise<void> {
   } else {
     job.status = 'failed'
     job.error = 'OpenCode install failed — see output above'
+  }
+  job.finishedAt = Date.now()
+}
+
+async function installKiroLocal(job: InstallJob): Promise<void> {
+  job.output += '> Installing Kiro CLI...\n'
+
+  const env = getInstallEnv()
+  const path = require('node:path')
+  const dataDir = path.resolve(config.dataDir || '.data')
+  const binDir = path.join(dataDir, '.local', 'bin')
+  try { require('node:fs').mkdirSync(binDir, { recursive: true }) } catch {}
+
+  // Kiro CLI installs via their official install script
+  job.output += '> Downloading Kiro CLI via install script...\n'
+  const success = await runInstallCmd('sh', ['-c', `curl -fsSL https://cli.kiro.dev/install | KIRO_INSTALL_DIR="${binDir}" bash`], job)
+
+  if (success) {
+    job.status = 'success'
+    job.output += '\n> Kiro CLI installed successfully.\n'
+    job.output += '> Run "kiro-cli login" to authenticate with your Kiro account.\n'
+  } else {
+    job.status = 'failed'
+    job.error = 'Kiro CLI install failed — see output above'
   }
   job.finishedAt = Date.now()
 }

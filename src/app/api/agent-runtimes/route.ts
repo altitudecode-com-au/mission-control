@@ -7,7 +7,7 @@ import { clearHermesDetectionCache } from '@/lib/hermes-sessions'
 import { logAuditEvent } from '@/lib/db'
 import { logger } from '@/lib/logger'
 
-const VALID_RUNTIMES = new Set<RuntimeId>(['openclaw', 'hermes', 'claude', 'codex', 'opencode'])
+const VALID_RUNTIMES = new Set<RuntimeId>(['openclaw', 'hermes', 'claude', 'codex', 'opencode', 'kiro'])
 const VALID_MODES = new Set<DeploymentMode>(['local', 'docker'])
 
 export async function GET(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const runtime = body.runtime as RuntimeId
     const mode = (body.mode || 'local') as DeploymentMode
     if (!runtime || !VALID_RUNTIMES.has(runtime)) {
-      return NextResponse.json({ error: 'Invalid runtime. Use: openclaw, hermes, claude, codex, opencode' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid runtime. Use: openclaw, hermes, claude, codex, opencode, kiro' }, { status: 400 })
     }
     if (!VALID_MODES.has(mode)) {
       return NextResponse.json({ error: 'Invalid mode. Use: local, docker' }, { status: 400 })
@@ -84,13 +84,14 @@ export async function POST(request: NextRequest) {
 
   if (action === 'login') {
     const runtime = body.runtime as RuntimeId
-    if (runtime !== 'claude' && runtime !== 'codex') {
-      return NextResponse.json({ error: 'Login action only supported for claude and codex' }, { status: 400 })
+    if (runtime !== 'claude' && runtime !== 'codex' && runtime !== 'kiro') {
+      return NextResponse.json({ error: 'Login action only supported for claude, codex, and kiro' }, { status: 400 })
     }
 
     const loginCommands: Record<string, { bin: string; args: string[] }> = {
       claude: { bin: 'claude', args: ['login', '--no-open'] },
       codex: { bin: 'codex', args: ['auth'] },
+      kiro: { bin: 'kiro-cli', args: ['login'] },
     }
 
     const { bin: binName, args } = loginCommands[runtime]

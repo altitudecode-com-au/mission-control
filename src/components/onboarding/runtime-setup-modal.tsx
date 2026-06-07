@@ -17,6 +17,7 @@ export function RuntimeSetupModal({ runtime, onClose, onComplete }: RuntimeSetup
     claude: ClaudeSetup,
     codex: CodexSetup,
     opencode: OpenCodeSetup,
+    kiro: KiroSetup,
   }[runtime]
 
   return (
@@ -1380,6 +1381,179 @@ function StatusCard({ label, ok, value, subtitle }: { label: string; ok?: boolea
         )}
       </div>
       {subtitle && <p className="text-[10px] text-muted-foreground/40 mt-0.5">{subtitle}</p>}
+    </div>
+  )
+}
+
+// ─── Kiro CLI Setup ─────────────────────────────────────────────────────
+
+function KiroSetup({ onClose, onComplete }: { onClose: () => void; onComplete: () => void }) {
+  const [step, setStep] = useState<'check' | 'auth' | 'done'>('check')
+  const [checking, setChecking] = useState(false)
+  const [version, setVersion] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loginBusy, setLoginBusy] = useState(false)
+  const [loginOutput, setLoginOutput] = useState('')
+  const [deviceUrl, setDeviceUrl] = useState<string | null>(null)
+
+  const checkAuth = useCallback(async () => {
+    setChecking(true)
+    setError(null)
+    try {
+      const data = await apiFetch<{ runtimes?: Array<{ id: string; version: string; authenticated?: boolean }> }>('/api/agent-runtimes')
+      const kiro = (data.runtimes || []).find((r) => r.id === 'kiro')
+      if (kiro) {
+        setVersion(kiro.version)
+        if (kiro.authenticated) setStep('done')
+        else setStep('auth')
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // no-op
+      } else {
+        setError(err instanceof Error ? err.message : 'Check failed')
+      }
+    } finally {
+      setChecking(false)
+    }
+  }, [])
+
+  useEffect(() => { checkAuth() }, [checkAuth])
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-semibold">Set Up Kiro CLI</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Authenticate the Kiro CLI agent</p>
+        </div>
+        <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <svg className="w-5 h-5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+        </button>
+      </div>
+
+      {/* Step indicators */}
+      <div className="flex items-center gap-2 mb-6">
+        {(['check', 'auth', 'done'] as const).map((s, i) => {
+          const labels = ['Check', 'Authenticate', 'Ready']
+          const currentIdx = (['check', 'auth', 'done'] as const).indexOf(step)
+          return (
+            <div key={s} className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                step === s ? 'bg-primary text-primary-foreground' :
+                currentIdx > i ? 'bg-green-500/20 text-green-400' :
+                'bg-secondary text-muted-foreground'
+              }`}>
+                {currentIdx > i ? (
+                  <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 8.5l3.5 3.5 6.5-8" /></svg>
+                ) : i + 1}
+              </div>
+              <span className={`text-[10px] ${step === s ? 'text-foreground' : 'text-muted-foreground/40'}`}>{labels[i]}</span>
+              {i < 2 && <div className={`w-4 h-px ${currentIdx > i ? 'bg-green-500/40' : 'bg-border/20'}`} />}
+            </div>
+          )
+        })}
+      </div>
+
+      {step === 'check' && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-lg border border-border/30 bg-secondary/20">
+            <p className="text-sm font-medium">Checking authentication status...</p>
+            <p className="text-xs text-muted-foreground mt-1">Verifying Kiro CLI credentials.</p>
+          </div>
+          {checking && <div className="flex items-center gap-2 text-xs text-muted-foreground"><div className="w-3 h-3 rounded-full border-2 border-primary/20 border-t-primary animate-spin" /> Checking...</div>}
+          {error && <p className="text-xs text-red-400">{error}</p>}
+        </div>
+      )}
+
+      {step === 'auth' && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5 space-y-3">
+            <p className="text-sm font-medium text-amber-400">Authentication Required</p>
+            <p className="text-xs text-muted-foreground">
+              Kiro CLI {version ? `(v${version})` : ''} is installed but not authenticated.
+            </p>
+            <div className="p-3 rounded bg-black/20 border border-border/20 space-y-2">
+              <p className="text-xs text-muted-foreground mb-1.5">Option 1: Run login from this dashboard</p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={loginBusy}
+                onClick={async () => {
+                  setLoginBusy(true)
+                  setLoginOutput('')
+                  setDeviceUrl(null)
+                  try {
+                    const res = await fetch('/api/agent-runtimes', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'login', runtime: 'kiro' }),
+                    })
+                    const data = await res.json()
+                    if (data.output) setLoginOutput(data.output)
+                    if (data.deviceUrl) setDeviceUrl(data.deviceUrl)
+                    if (data.success) {
+                      checkAuth()
+                    }
+                  } catch (err: any) {
+                    setLoginOutput(`Error: ${err?.message || 'Login failed'}`)
+                  } finally {
+                    setLoginBusy(false)
+                  }
+                }}
+              >
+                {loginBusy ? 'Running login...' : 'Start Login'}
+              </Button>
+              {deviceUrl && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-muted-foreground">Open this link to authenticate:</p>
+                  <a
+                    href={deviceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex text-xs text-primary underline underline-offset-2 hover:text-primary/80 break-all"
+                  >
+                    {deviceUrl}
+                  </a>
+                </div>
+              )}
+              {loginOutput && (
+                <pre className="mt-2 max-h-24 overflow-y-auto rounded border border-border/20 bg-black/25 px-2.5 py-1.5 text-[10px] text-muted-foreground/80 whitespace-pre-wrap break-all">
+                  {loginOutput}
+                </pre>
+              )}
+            </div>
+            <div className="p-3 rounded bg-black/20 border border-border/20">
+              <p className="text-xs text-muted-foreground mb-1.5">Option 2: Run manually via SSH/SSM</p>
+              <code className="block font-mono text-sm text-foreground select-all">kiro-cli login</code>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Authenticate with your Kiro account at <a href="https://kiro.dev" target="_blank" rel="noopener noreferrer" className="text-primary underline">kiro.dev</a>.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose}>Skip</Button>
+            <Button size="sm" onClick={checkAuth} disabled={checking}>
+              {checking ? 'Checking...' : 'I\'ve logged in — verify'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'done' && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/5 text-center space-y-2">
+            <div className="text-2xl">+</div>
+            <p className="text-sm font-medium text-green-400">Kiro CLI is ready</p>
+            <p className="text-xs text-muted-foreground">Authenticated and available for agent tasks.</p>
+            {version && <p className="text-2xs text-muted-foreground/60">v{version}</p>}
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={onComplete}>Done</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
